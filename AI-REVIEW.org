@@ -1,0 +1,13 @@
+#+TITLE: AI-REVIEW.org — org-auto
+#+STARTUP: overview
+
+* 2026-11-10 — initial delivery (z.ai-agent / GLM-5.3-Flash)
+
+- org-auto 0.1.0: run an entry's :EXEC: property command at that
+  entry's SCHEDULED/DEADLINE time. Package named =org-auto= per Owner
+  order 2026-11-10 #hq (khaalidrafi/packages is a Guix channel; this
+  is a standalone repo).
+- Verified (Emacs 30.1, batch): ERT 7/7 green on fixture, byte-compile
+  0 warnings, push verified with ls-remote (ai/main + main @ e0713cf).
+- Independent review (G2): pending — not yet reviewed by a seat other
+  than the author.
