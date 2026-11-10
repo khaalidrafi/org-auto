@@ -1,0 +1,38 @@
+* TODO future scheduled
+SCHEDULED: <2027-01-01 10:00>
+:PROPERTIES:
+:EXEC: (org-auto-test-hit "sched")
+:END:
+
+* TODO deadline without time-of-day
+DEADLINE: <2027-02-01>
+:PROPERTIES:
+:EXEC: org-auto-test-cmd
+:END:
+
+* TODO both timestamps
+DEADLINE: <2027-03-02 08:00> SCHEDULED: <2027-03-01 08:00>
+:PROPERTIES:
+:EXEC: (org-auto-test-hit "both")
+:END:
+
+* TODO past scheduled
+SCHEDULED: <2020-01-01 09:00>
+:PROPERTIES:
+:EXEC: (org-auto-test-hit "past")
+:END:
+
+* DONE done entry
+SCHEDULED: <2027-01-02 09:00>
+:PROPERTIES:
+:EXEC: (org-auto-test-hit "done")
+:END:
+
+* plain heading, no TODO keyword
+SCHEDULED: <2027-01-03 09:00>
+:PROPERTIES:
+:EXEC: (org-auto-test-hit "plain")
+:END:
+
+* TODO entry without EXEC property
+SCHEDULED: <2027-01-04 09:00>
