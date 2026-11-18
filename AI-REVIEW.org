@@ -11,3 +11,37 @@
   0 warnings, push verified with ls-remote (ai/main + main @ e0713cf).
 - Independent review (G2): pending — not yet reviewed by a seat other
   than the author.
+
+* 2026-11-18 — built-in timers pass (z.ai-agent / GLM-5.3-Flash)
+
+Owner order 2026-11-18 (Discord): org-auto should use Emacs' built-in
+timers; how does it auto-update when editing an agenda file?  Audit
+result: arming already used built-in =run-at-time= one-shots, but the
+only edit trigger was =after-save-hook= — unsaved edits were invisible
+until save.  Changes (org-auto 0.2.0):
+
+- Edits now re-arm: a buffer-local =after-change-functions= entry
+  (installed by =org-mode-hook= when the mode is on) restarts a
+  debounced =run-with-idle-timer= (=org-auto-idle-delay=, default 3 s)
+  whenever the edited buffer's file passes =org-agenda-file-p=.
+  Pure built-ins: =run-with-idle-timer= / =cancel-timer= / =run-at-time=.
+- Reinvented wheel removed: the hand-rolled agenda-membership check
+  =(member (expand-file-name ...) (mapcar #'expand-file-name
+  (org-agenda-files)))= replaced by Org's own =org-agenda-file-p=
+  (also fixes the symlink case via =file-truename=).  Verified against
+  org.el source (org-agenda-file-p, org-map-entries file-list SCOPE).
+- Fire-time liveness: the timer callback is now =org-auto--fire-maybe=;
+  it rescans just the owning file (=org-map-entries= with a =(list
+  file)= scope, per its docstring) and skips the command when the
+  entry is gone, DONE, or its EXEC property changed since arming — a
+  stale timer can no longer fire a cancelled automation.
+- =org-auto-refresh= cancels the pending idle timer (no double
+  refresh after save-then-idle) and gained a QUIET arg for the idle
+  path.
+
+Verified (Emacs 30.1, Org 9.7.11, batch):
+=byte-compile-error-on-warn= gate 0 warnings, ERT 18/18 green
+(11 new tests: liveness happy/DONE/changed-cmd/missing-file,
+fire-maybe fire+skip, after-change queue/non-agenda/nil-delay,
+refresh-cancels-idle, mode-toggle wiring cleanup).  API verified
+against Org source, not memory.
