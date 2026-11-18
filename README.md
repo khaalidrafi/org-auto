@@ -34,9 +34,16 @@ DEADLINE: <2026-11-13 Fri 14:00>
 
 ## Timer lifecycle
 
-Timers are re-armed when the mode turns on, after saving an agenda Org
-file, and by hand with `M-x org-auto-refresh`. Disable the mode to
-cancel everything.
+Timers re-arm when the mode turns on, when an agenda Org file is
+saved, and `org-auto-idle-delay` seconds (default 3) after you stop
+editing an agenda file — moving a SCHEDULED timestamp or marking an
+entry DONE re-arms without a save. Re-arm means: every armed timer is
+cancelled, `org-agenda-files` is rescanned, and one built-in Emacs
+timer (`run-at-time`) is armed per future SCHEDULED/DEADLINE that
+carries an `:EXEC:` property. At fire time the entry is re-checked
+against the file — if it is gone, DONE, or its `:EXEC:` changed since
+arming, the command is skipped. Disable the mode to cancel
+everything; `M-x org-auto-refresh` re-arms by hand.
 
 ## Limitations (v1, deliberate)
 
@@ -44,6 +51,8 @@ cancel everything.
 - Repeaters and warning periods are ignored — each timestamp fires
   once.
 - Diary-sexp timestamps are not supported.
+- Edits made outside Emacs (git pull, sync tools) are not noticed;
+  run `M-x org-auto-refresh` after them.
 
 ## Development
 

@@ -69,3 +69,110 @@
                   (setq seen (list tag org-auto-current-entry)))))
        (org-auto--fire "f.org" "my heading" "(org-auto-test-hit \"x\")"))
      (should (equal seen (list "x" '(:file "f.org" :heading "my heading")))))))
+
+(defmacro org-auto-test--with-fixture-buffer (&rest body)
+  "Run BODY with a buffer visiting the fixture file as current."
+  `(let ((buf (find-file-noselect
+               (expand-file-name "fixture.org" org-auto-test--dir))))
+     (unwind-protect
+         (with-current-buffer buf ,@body)
+       (ignore-errors (kill-buffer buf)))))
+
+(defun org-auto-test--clear-idle-timer ()
+  (when org-auto--idle-timer
+    (cancel-timer org-auto--idle-timer)
+    (setq org-auto--idle-timer nil)))
+
+(ert-deftest org-auto-test/entry-live-p-happy-path ()
+  (org-auto-test--with-fixture
+   (should (org-auto--entry-live-p
+            (expand-file-name "fixture.org" org-auto-test--dir)
+            "future scheduled"
+            "(org-auto-test-hit \"sched\")"))))
+
+(ert-deftest org-auto-test/entry-live-p-rejects-done ()
+  (org-auto-test--with-fixture
+   (should-not (org-auto--entry-live-p
+                (expand-file-name "fixture.org" org-auto-test--dir)
+                "done entry"
+                "(org-auto-test-hit \"done\")"))))
+
+(ert-deftest org-auto-test/entry-live-p-rejects-changed-cmd ()
+  (org-auto-test--with-fixture
+   (should-not (org-auto--entry-live-p
+                (expand-file-name "fixture.org" org-auto-test--dir)
+                "future scheduled"
+                "(org-auto-test-hit \"something-else\")"))))
+
+(ert-deftest org-auto-test/entry-live-p-rejects-missing-file ()
+  (should-not (org-auto--entry-live-p "/nonexistent/org-auto-x.org" "h" "cmd")))
+
+(ert-deftest org-auto-test/fire-maybe-fires-live-entry ()
+  (org-auto-test--with-fixture
+   (org-auto--fire-maybe (expand-file-name "fixture.org" org-auto-test--dir)
+                          "future scheduled"
+                          "(org-auto-test-hit \"sched\")")
+   (should (member "sched" org-auto-test--hits))))
+
+(ert-deftest org-auto-test/fire-maybe-skips-stale-entry ()
+  (org-auto-test--with-fixture
+   ;; DONE since arming: the timer must not fire.
+   (org-auto--fire-maybe (expand-file-name "fixture.org" org-auto-test--dir)
+                          "done entry"
+                          "(org-auto-test-hit \"done\")")
+   ;; File vanished since arming: no error, no fire.
+   (org-auto--fire-maybe "/nonexistent/org-auto-x.org" "h"
+                          "(org-auto-test-hit \"gone\")")
+   (should (null org-auto-test--hits))))
+
+(ert-deftest org-auto-test/after-change-queues-idle-refresh-for-agenda-file ()
+  (org-auto-test--with-fixture
+   (let ((org-auto-mode t))
+     (org-auto-test--with-fixture-buffer
+      (org-auto--after-change 1 1 0)
+      (should org-auto--idle-timer))
+     (org-auto-test--clear-idle-timer))))
+
+(ert-deftest org-auto-test/after-change-ignores-non-agenda-file ()
+  (org-auto-test--with-fixture
+   (let ((org-auto-mode t)
+         (tmp (make-temp-file "org-auto-test" nil ".org")))
+     (unwind-protect
+         (with-temp-buffer
+           (setq buffer-file-name tmp)
+           (org-auto--after-change 1 1 0)
+           (should-not org-auto--idle-timer))
+       (delete-file tmp)))
+   (org-auto-test--clear-idle-timer)))
+
+(ert-deftest org-auto-test/after-change-respects-nil-delay ()
+  (org-auto-test--with-fixture
+   (let ((org-auto-mode t)
+         (org-auto-idle-delay nil))
+     (org-auto-test--with-fixture-buffer
+      (org-auto--after-change 1 1 0)
+      (should-not org-auto--idle-timer)))
+   (org-auto-test--clear-idle-timer)))
+
+(ert-deftest org-auto-test/refresh-cancels-pending-idle-timer ()
+  (org-auto-test--with-fixture
+   (setq org-auto--idle-timer (run-with-idle-timer 1000 nil #'ignore))
+   (org-auto-refresh t)
+   (should-not org-auto--idle-timer)
+   (org-auto--cancel-all)))
+
+(ert-deftest org-auto-test/mode-toggle-wires-and-cleans-up ()
+  (org-auto-test--with-fixture
+   (org-auto-test--with-fixture-buffer
+    (unwind-protect
+        (progn
+          (org-auto-mode 1)
+          (should (memq #'org-auto--after-change after-change-functions))
+          (should org-auto--timers)
+          (org-auto-mode 0)
+          (should-not (memq #'org-auto--after-change after-change-functions))
+          (should-not org-auto--timers)
+          (should-not org-auto--idle-timer))
+      (when org-auto-mode (org-auto-mode 0))
+      (org-auto--cancel-all)
+      (org-auto-test--clear-idle-timer)))))
